@@ -247,10 +247,10 @@ def send_port_knock(command):
     """
     global config
 
-    port_knock_auth = config.sender_address
-    port = RandShort()
+    # port = RandShort()
+    port = config.receiver_port
     receiver_addr = config.receiver_address
-    packet_start = "$$!!".encode('utf-8')
+    packet_start = "$$!!"
     delimiter = config.delimiter
 
     sport = RandShort()
