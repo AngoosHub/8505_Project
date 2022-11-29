@@ -6,5 +6,4 @@ sender_port=80
 port_knock_password_base=pokemon
 port_knock_password_seq_num=1
 delimiter=@@@
-
-#receiver_port=6000
+receiver_port=6000
