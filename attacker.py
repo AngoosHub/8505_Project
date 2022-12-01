@@ -385,7 +385,7 @@ def send_port_knock(command):
     one_time_password = config.port_knock_password_base+config.port_knock_password_seq_num
 
     msg_len = len(command.encode('utf-8'))
-    if msg_len <= 240:
+    if msg_len <= 240 or True:
         packet_order = f"{delimiter}1/1"
         message = one_time_password + packet_order + delimiter + command
         encrypt_msg = packet_start + encryption.encrypt(message.encode('utf-8')).decode('utf-8')
@@ -397,10 +397,9 @@ def send_port_knock(command):
         send(port_knock1, verbose=0)
     else:
         parts = textwrap.wrap(command, 240)
-
         for idx, part in enumerate(parts):
-            packet_order = f"{delimiter}{idx}/{len(parts)}"
-            message = one_time_password + packet_order + delimiter + command
+            packet_order = f"{delimiter}{idx+1}/{len(parts)}"
+            message = one_time_password + packet_order + delimiter + part
             encrypt_msg = packet_start + encryption.encrypt(message.encode('utf-8')).decode('utf-8')
             encrypt_len = len(encrypt_msg.encode('utf-8'))
             if encrypt_len > 508:

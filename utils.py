@@ -58,12 +58,3 @@ def stop_keylogger():
     print("Keylogger stopped.")
 
     return keylogger_log_path
-
-
-
-
-
-
-
-
-
