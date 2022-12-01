@@ -83,7 +83,7 @@ class Configuration:
 
 # Initialize configuration class
 config = Configuration()
-
+packet_list = {"instruction": 0, "session_name": "", "session_total": 0}
 
 # def read_configuration():
 #     """
@@ -168,9 +168,12 @@ def start_sender():
     try:
         ipcmd = f'iptables -A OUTPUT -p tcp --tcp-flags RST RST -s {IPAddr} --sport 80 -j DROP'
         result2 = subprocess.run(ipcmd, capture_output=True, text=True, shell=True).stdout
+        ipcmd2 = f'iptables -A OUTPUT -p icmp --icmp-type 3 -s {IPAddr} -j DROP'
+        result3 = subprocess.run(ipcmd2, capture_output=True, text=True, shell=True).stdout
     except Exception:
         result2 = "Could not set iptables rule to drop port 80 reset packets."
-    print(f"subprocess set iptables rule result: {result2}")
+        result3 = "Could not set iptables rule to drop icmp type 3 packets."
+        print(f"subprocess set iptables rule result: {result2}\n {result3}")
 
     # hostname = socket.gethostname()
     # IPAddr = socket.gethostbyname(hostname)
@@ -244,11 +247,15 @@ def start_sender():
         # data_server(IPAddr, sender_port)
 
     try:
-        ipcmd = f'iptables -D OUTPUT -p tcp --tcp-flags RST RST -s {IPAddr} --sport 80 -j DROP'
-        result2 = subprocess.run(ipcmd, capture_output=True, text=True, shell=True).stdout
+        ipcmd_f = f'iptables -F'
+        # ipcmd_d = f'iptables -D OUTPUT -p tcp --tcp-flags RST RST -s {IPAddr} --sport 80 -j DROP'
+        result2 = subprocess.run(ipcmd_f, capture_output=True, text=True, shell=True).stdout
+        # ipcmd2_d = f'iptables -D OUTPUT -p icmp --icmp-type 3 -s {IPAddr} -j DROP'
+        # result3 = subprocess.run(ipcmd2_d, capture_output=True, text=True, shell=True).stdout
     except Exception:
         result2 = "Could not drop iptables rule to drop port 80 reset packets."
-    print(f"subprocess drop iptables rule result: {result2}")
+        # result3 = "Could not set iptables rule to drop icmp type 3 packets."
+        print(f"subprocess drop iptables rule result: {result2}")
 
 
 def start_sniff():
@@ -268,11 +275,23 @@ def process_sniff_pkt(pkt):
     """
     global config
     global packet_list
-    packet_list = {"instruction": 0, "session_name": "", "session_total": 0}
-
 
     ip_dst = pkt.payload.dst
     if ip_dst != config.sender_address:
+        return
+
+    tcp_flags = pkt.payload["TCP"].flags
+    if tcp_flags == "S":
+        syn_ack = IP(dst=config.receiver_address) / TCP(sport=pkt.payload["TCP"].dport, dport=pkt.payload["TCP"].sport,
+                                                        flags='SA', seq=pkt.payload["TCP"].ack,
+                                    ack=pkt.payload["TCP"].seq + 1)
+        send(syn_ack)
+        return
+    elif tcp_flags == "A":
+        return
+
+    if tcp_flags != "PA":
+        print(f"Not supported TCP flag for sniff processing: {tcp_flags}")
         return
 
     # dst_port = pkt.payload.payload.dport
@@ -284,6 +303,11 @@ def process_sniff_pkt(pkt):
         return
 
     data = check_data.decode("utf-8")
+
+    ack = IP(dst=config.receiver_address) / \
+          TCP(sport=pkt.payload["TCP"].dport, dport=pkt.payload["TCP"].sport,
+              flags='A', seq=pkt.payload["TCP"].ack - 1, ack=pkt.payload["TCP"].seq + len(pkt[TCP].payload))
+    send(ack)
 
     # if type(check_data) == bytes:
     #     print(f"Payload: {check_data.decode('utf-8')}")
@@ -300,14 +324,15 @@ def process_sniff_pkt(pkt):
 
         cookie = data.split("Cookie:")[1].split("Connection:")[0].strip()
         instruction = cookie.split(",")[0].split("=")[1].strip()
-        session_name = cookie.split(",")[1].split("=")[1].strip()
+        session_name = cookie.split(",")[1].split("session_name=")[1].strip()
         session = str(int(cookie.split(",")[2].split("=")[1].strip()))
         content = data.split("Content-Length: ")[1].split(maxsplit=1)[1].strip()
         print(instruction)
+        session_name = encryption.decrypt(session_name.encode('utf-8')).decode('utf-8')
         print(f"session_name: {session_name}")
         print(session)
         print(content)
-        session_current = 1
+        session_current = "1"
         session_total = session
         print(f"session_current: {session_current}")
         print(f"session_total: {session_total}")
@@ -417,7 +442,7 @@ def process_data(instruction, data, filename=""):
     elif instruction == "4":
         print(f"Instruction: {instruction}")
         # print(data)
-        decrypted_data = encryption.decrypt(data.encode('utf-8')).decode('utf-8')
+        decrypted_data = encryption.decrypt(data.encode('utf-8'))
         # print(decrypted_data)
         with open(file=f"/root/Desktop/write_test/{filename}", mode='wb') as file:
             file.write(decrypted_data)
