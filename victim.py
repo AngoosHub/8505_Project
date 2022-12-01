@@ -246,6 +246,16 @@ def process_sniff_pkt(pkt):
     if len(commands) > 3:
         instruction_input = commands[3]
 
+    if config.port_knock_password_base not in packet_password:
+        print(f"Incorrect password base. Port knock rejected.")
+
+    pass_seq = packet_password.split(config.port_knock_password_base)
+
+    if int(pass_seq) >= int(config.port_knock_password_seq_num):
+        print(f"Valid one-time password. Port knock accepted.")
+    else:
+        print(f"Invalid one-time password. Port knock rejected.")
+
     if one_time_password != packet_password:
         print(f"Password Don't Match!\n{one_time_password}\n{packet_password}")
         return
@@ -437,14 +447,24 @@ class OnMyWatch:
         # event_handler.on_created = on_created
         self.observer.schedule(event_handler, self.watch_directory, recursive=self.is_recursive)
         self.observer.start()
-        try:
-            while True:
-                time.sleep(60)
-        except:
+        if self.instruction == "7":
+            try:
+                while directory_watch_active:
+                    time.sleep(1)
+            except:
+                self.observer.stop()
+                print("Observer Stopped")
             self.observer.stop()
-            print("Observer Stopped")
+        else:
+            try:
+                while file_watch_active:
+                    time.sleep(1)
+            except:
+                self.observer.stop()
+                print("Observer Stopped")
+            self.observer.stop()
 
-        self.observer.join()
+        # self.observer.join()
 
     def stop(self):
         self.observer.stop()
@@ -499,8 +519,8 @@ def stop_watching_directory():
         print("Directory watch stopped.")
         return
 
-    watch.stop()
     directory_watch_active = False
+    watch.stop()
     print(f"Directory watch stopped: {watch.watch_directory}")
     return
 
@@ -554,8 +574,8 @@ def stop_watching_file():
         print("File watch stopped.")
         return
 
-    watch_file.stop()
     file_watch_active = False
+    watch_file.stop()
     print(f"File watch stopped: {watch_file.watch_directory}")
     return
 

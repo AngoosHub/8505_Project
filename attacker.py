@@ -338,9 +338,9 @@ def process_data(instruction, data, filename=""):
     elif instruction == "3":
         print(f"Instruction: {instruction}")
         decrypted_data = encryption.decrypt(data.encode('utf-8')).decode('utf-8')
-        with open(file=f"/root/Desktop/write_test/{LOG_PATH}", mode='a') as file:
+        with open(file=f"{config.storage_path}{LOG_PATH}", mode='a') as file:
             file.write(decrypted_data)
-        print(f"Output: /root/Desktop/write_test/{LOG_PATH}")
+        print(f"Output: {config.storage_path}{LOG_PATH}")
     elif instruction == "4":
         print(f"Instruction: {instruction}")
         # print(data)
