@@ -350,7 +350,13 @@ def process_data(instruction, data, filename=""):
             file.write(decrypted_data)
         print(f"Output: {config.storage_path}{filename}")
     elif instruction == "5":
-        print(instruction)
+        print(f"{instruction} Watched file was modified.")
+        # print(data)
+        decrypted_data = encryption.decrypt(data.encode('utf-8'))
+        # print(decrypted_data)
+        with open(file=f"{config.storage_path}{filename}", mode='wb') as file:
+            file.write(decrypted_data)
+        print(f"Output: {config.storage_path}{filename}")
     elif instruction == "6":
         print(instruction)
     elif instruction == "7":

