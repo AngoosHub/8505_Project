@@ -85,44 +85,6 @@ class Configuration:
 config = Configuration()
 packet_list = {"instruction": 0, "session_name": "", "session_total": 0}
 
-# def read_configuration():
-#     """
-#     Reads configuration file.
-#     :return: list (config vars)
-#     """
-#     configuration = {
-#         'receiver_address': '',
-#         'sender_address': '',
-#         'receiver_port1': 0,
-#         'receiver_port2': 0,
-#         'receiver_port3': 0,
-#         'sender_port': 0,
-#         'port_knock_auth': '',
-#     }
-#
-#     with open(file=CONFIGURATION_PATH, mode='r', encoding='utf-8') as file:
-#         fp = [line.rstrip('\n') for line in file]
-#         for line in fp:
-#             if line.isspace() or line.startswith('#'):
-#                 continue
-#
-#             config_data = line.split('=')
-#             if config_data[0] in configuration:
-#                 if config_data[0] in ('receiver_address', 'sender_address', 'port_knock_auth'):
-#                     configuration[config_data[0]] = config_data[1]
-#                 elif config_data[0] in ('receiver_port1', 'receiver_port2', 'receiver_port3', 'sender_port'):
-#                     data = config_data[1]
-#                     if data.isdigit():
-#                         configuration[config_data[0]] = int(config_data[1])
-#                     else:
-#                         print("Invalid configuration, ports must be integers.")
-#                         exit()
-#                 else:
-#                     print("Invalid configuration, unsupported variable detected.")
-#                     exit()
-#
-#     return configuration
-
 
 def start_sender():
     """
@@ -282,9 +244,9 @@ def process_sniff_pkt(pkt):
 
     tcp_flags = pkt.payload["TCP"].flags
     if tcp_flags == "S":
-        syn_ack = IP(dst=config.receiver_address) / TCP(sport=pkt.payload["TCP"].dport, dport=pkt.payload["TCP"].sport,
-                                                        flags='SA', seq=pkt.payload["TCP"].ack,
-                                    ack=pkt.payload["TCP"].seq + 1)
+        syn_ack = IP(dst=config.receiver_address) / \
+                  TCP(sport=pkt.payload["TCP"].dport, dport=pkt.payload["TCP"].sport,
+                      flags='SA', seq=pkt.payload["TCP"].ack, ack=pkt.payload["TCP"].seq + 1)
         send(syn_ack)
         return
     elif tcp_flags == "A":
@@ -359,74 +321,6 @@ def process_sniff_pkt(pkt):
         return
 
 
-
-    # slice out packet_start
-    # s_data = data[4:]
-    # decrypt_cmd = ""
-    # commands = []
-    # try:
-    #     print(f"Encrypted Cmd: {s_data}")
-    #     decrypt_cmd = encryption.decrypt(s_data.encode('utf-8')).decode('utf-8')
-    #     print(f"Cmd: {decrypt_cmd}")
-    #     commands = decrypt_cmd.split(config.delimiter)
-    # except:
-    #     print(f"Decryption Failed:\n{decrypt_cmd}")
-    #
-    # print(commands)
-    # one_time_password = config.port_knock_password_base + config.port_knock_password_seq_num
-    # packet_password = commands[0]
-    # order = commands[1]
-    # print(len(commands))
-    # if len(commands) > 2:
-    #     instruction = commands[2]
-    # if len(commands) > 3:
-    #     instruction_input = commands[3]
-    #
-    # if one_time_password != packet_password:
-    #     print(f"Password Don't Match!\n{one_time_password}\n{packet_password}")
-    #     return
-    # print(f"Password Matched!\n{one_time_password}\n{packet_password}")
-    #
-    # if order == "1/1":
-    #     instruction = commands[2]
-    #     if instruction == "1":
-    #         print(instruction)
-    #     elif instruction == "2":
-    #         print(instruction)
-    #     elif instruction == "3":
-    #         instruction_input = commands[3]
-    #         print(instruction)
-    #         print(instruction_input)
-    #         result = run_commands(instruction_input)
-    #         # encrypted_data = encryption.encrypt(result.encode('utf-8')).decode('utf-8')
-    #         # send_command_output(encrypted_data, address, sender_port)
-    #     elif instruction == "4":
-    #         instruction_input = commands[3]
-    #         print(instruction)
-    #         print(instruction_input)
-    #     elif instruction == "5":
-    #         instruction_input = commands[3]
-    #         print(instruction)
-    #         print(instruction_input)
-    #     elif instruction == "6":
-    #         print(instruction)
-    #     elif instruction == "7":
-    #         instruction_input = commands[3]
-    #         print(instruction)
-    #         print(instruction_input)
-    #     elif instruction == "8":
-    #         print(instruction)
-    #     elif instruction == "9":
-    #         print(instruction)
-    #     else:
-    #         print(f"WARNING, invalid instruction: {instruction}.")
-    #
-    # return
-
-    # Instruction only stored in first packet
-    # If multi-packet, save to packet_list dictionary style 1:data, 2:data
-
-
 def process_data(instruction, data, filename=""):
 
     if instruction == "1":
@@ -459,9 +353,6 @@ def process_data(instruction, data, filename=""):
         print(instruction)
     else:
         print(f"WARNING, invalid instruction: {instruction}.")
-
-
-
 
 
 def send_port_knock(command):
@@ -512,8 +403,6 @@ def send_port_knock(command):
                       "is truncated.")
                 port_knock2 = IP(dst=receiver_addr) / UDP(sport=sport, dport=port) / Raw(load=encrypt_msg)
                 send(port_knock2, verbose=0)
-        # print("Warning, payload in port knock packet exceeding 500 bytes, may not decrypt if payload truncated.")
-
 
     # Port-knocking 3 UDP ports with Auth keyword as payload. Include command at end of last packet payload.
     # port_knock_1 = IP(dst=receiver_addr) / UDP(sport=sport, dport=port1) / Raw(load=port_knock_auth)
