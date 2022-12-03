@@ -347,6 +347,8 @@ def send_message(message, instruction, filename=""):
     # inital_seq_num = 1000
 
     # 3-way-handshake
+    if instruction == "9":
+        return
     syn = IP(dst=address) / TCP(dport=dport, flags='S')
     syn_ack = sr1(syn, verbose=0, timeout=3)
 
