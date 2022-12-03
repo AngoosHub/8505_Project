@@ -149,7 +149,7 @@ def hide_process_name():
         setproctitle.setproctitle("/bin/bash")
 
 
-def start_backdoor():
+def start_victim():
     """
     Initialize the packet sniffing backdoor. Elevate privileges, sets up configurations, and starts sniff.
     :return: None
@@ -631,7 +631,7 @@ def stop_watching_file():
 
 if __name__ == "__main__":
     try:
-        start_backdoor()
+        start_victim()
     except KeyboardInterrupt as e:
         print("Receiver Shutdown")
         exit()
